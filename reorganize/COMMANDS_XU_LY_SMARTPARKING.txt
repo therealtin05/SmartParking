@@ -1,0 +1,57 @@
+# ============================================
+# COMMANDS XỬ LÝ FOLDER SmartParking\SmartParking
+# ============================================
+# Sau khi đã merge dependencies vào frontend
+# ============================================
+
+# BƯỚC 1: Kiểm tra lại các file đã merge chưa
+cd D:\SmartParking
+dir SmartParking\SmartParking
+
+# BƯỚC 2: Xóa node_modules trong SmartParking\SmartParking (không cần nữa)
+rmdir SmartParking\SmartParking\node_modules /S /Q
+
+# BƯỚC 3: Xóa package-lock.json (đã merge vào frontend rồi)
+del SmartParking\SmartParking\package-lock.json
+
+# BƯỚC 4: Xóa README.md cũ (đã có README.md ở root)
+del SmartParking\SmartParking\README.md
+
+# BƯỚC 5: Xóa eslint.config.mts (đã merge vào frontend/eslint.config.js rồi)
+del SmartParking\SmartParking\eslint.config.mts
+
+# BƯỚC 6: Xóa package.json (đã merge vào frontend/package.json rồi)
+del SmartParking\SmartParking\package.json
+
+# BƯỚC 7: Kiểm tra lại xem folder còn gì không
+dir SmartParking\SmartParking
+
+# BƯỚC 8: Nếu folder rỗng hoặc chỉ còn . và .., xóa folder
+rmdir SmartParking\SmartParking /S /Q
+
+# BƯỚC 9: Xóa luôn folder SmartParking nếu rỗng
+dir SmartParking
+# Nếu chỉ còn . và .., xóa luôn:
+# rmdir SmartParking /S /Q
+
+# ============================================
+# SAU KHI XÓA - CÀI LẠI DEPENDENCIES
+# ============================================
+
+# Vào frontend và cài lại dependencies
+cd frontend
+rmdir node_modules /S /Q
+del package-lock.json
+npm install
+
+# Test xem có chạy được không
+npm run dev
+
+# ============================================
+# NẾU CẦN CÀI THÊM TAILWINDCSS CONFIG
+# ============================================
+
+# Tạo tailwind.config.js (nếu chưa có)
+# cd frontend
+# npx tailwindcss init -p
+

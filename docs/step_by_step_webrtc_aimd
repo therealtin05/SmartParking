@@ -1,0 +1,1156 @@
+# 🚀 Hướng Dẫn Step-by-Step: Smart Parking với WebRTC + AI
+
+## 📌 Tổng Quan Solution
+
+### Kiến trúc:
+```
+Camera (WebRTC) 
+    ↓
+Browser (Live Stream)
+    ↓
+AI Model (TensorFlow.js) - Chạy trên browser
+    ↓
+Detect xe real-time
+    ↓
+Firestore (Chỉ lưu kết quả detection)
+```
+
+### Ưu điểm:
+- ✅ **100% MIỄN PHÍ** - Không cần Storage, không cần Cloud Functions
+- ✅ **Real-time** - Detect ngay lập tức
+- ✅ **Privacy** - Video không rời khỏi browser
+- ✅ **Đơn giản** - Chỉ cần Firestore (không cần Firebase Storage)
+
+---
+
+## 📋 MỤC LỤC
+
+- [Bước 0: Chuẩn Bị](#bước-0-chuẩn-bị)
+- [Bước 1: Setup Project](#bước-1-setup-project)
+- [Bước 2: Setup Firestore (Chỉ Database)](#bước-2-setup-firestore)
+- [Bước 3: Setup TensorFlow.js](#bước-3-setup-tensorflowjs)
+- [Bước 4: Build WebRTC Live Camera](#bước-4-build-webrtc-live-camera)
+- [Bước 5: Integrate AI Detection](#bước-5-integrate-ai-detection)
+- [Bước 6: Save Results to Firestore](#bước-6-save-results-to-firestore)
+- [Bước 7: Build Dashboard](#bước-7-build-dashboard)
+- [Bước 8: Testing & Polish](#bước-8-testing--polish)
+
+---
+
+## Bước 0: Chuẩn Bị
+
+### ✅ Checklist
+
+```bash
+# Check Node.js (cần >= 18.0.0)
+node --version
+
+# Check npm
+npm --version
+```
+
+### 📦 Tools Cần Cài
+
+1. **Node.js** v18+: https://nodejs.org/
+2. **VS Code**: https://code.visualstudio.com/
+3. **Git**: https://git-scm.com/
+
+### 🔧 VS Code Extensions (Khuyến nghị)
+
+- ESLint
+- Prettier  
+- Tailwind CSS IntelliSense
+- ES7+ React/Redux snippets
+
+---
+
+## Bước 1: Setup Project
+
+### 1.1. Vào Folder Frontend
+
+```bash
+cd D:\SmartParking\frontend
+```
+
+### 1.2. Install Dependencies
+
+```bash
+# Core dependencies
+npm install react-router-dom
+
+# Tailwind CSS
+npm install -D tailwindcss postcss autoprefixer @tailwindcss/postcss
+npm install
+
+# Firebase (CHỈ Firestore, KHÔNG cần Storage)
+npm install firebase
+
+# TensorFlow.js (AI chạy trên browser)
+npm install @tensorflow/tfjs @tensorflow-models/coco-ssd
+
+# Chart.js (biểu đồ)
+npm install chart.js react-chartjs-2
+
+# Utilities
+npm install date-fns
+```
+
+### 1.3. Tạo Cấu Trúc Folders
+
+```bash
+cd src
+mkdir components pages services hooks types config
+mkdir services/ai
+```
+
+**Kết quả:**
+```
+src/
+├── components/     # UI components
+├── pages/          # Page components
+├── services/       # Services
+│   └── ai/         # AI detection service
+├── hooks/          # Custom React hooks
+├── types/          # TypeScript types
+└── config/         # Firebase config
+```
+
+### 1.4. Test Run
+
+```bash
+npm run dev
+```
+
+Mở http://localhost:5173 - Phải thấy trang Vite mặc định.
+
+### ✅ Checkpoint 1
+- [ ] Project chạy được
+- [ ] Tailwind CSS hoạt động
+- [ ] Không có lỗi
+
+---
+
+## Bước 2: Setup Firestore (Chỉ Database)
+
+> **LƯU Ý**: Chúng ta CHỈ dùng Firestore (database), KHÔNG dùng Storage!
+
+### 2.1. Tạo Firebase Project
+
+1. Vào https://console.firebase.google.com/
+2. Click **"Add project"**
+3. Nhập tên: `smart-parking-webrtc`
+4. Disable Google Analytics
+5. Click **"Create project"**
+
+### 2.2. Enable Firestore
+
+1. Sidebar → Click **"Firestore Database"**
+2. Click **"Create database"**
+3. Chọn **"Start in test mode"** (để dev dễ)
+4. Location: `asia-southeast1` (Singapore)
+5. Click **"Enable"**
+
+### 2.3. Lấy Firebase Config
+
+1. Click ⚙️ → **"Project settings"**
+2. Scroll xuống **"Your apps"**
+3. Click icon **Web** (`</>`)
+4. Nickname: `smart-parking-web`
+5. Click **"Register app"**
+6. Copy config
+
+### 2.4. Tạo File Config
+
+**File: `.env.local`** (TẠO MỚI ở root frontend)
+
+```env
+VITE_FIREBASE_API_KEY=AIzaSy...
+VITE_FIREBASE_AUTH_DOMAIN=smart-parking-webrtc.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=smart-parking-webrtc
+VITE_FIREBASE_STORAGE_BUCKET=smart-parking-webrtc.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
+VITE_FIREBASE_APP_ID=1:123456789:web:abc123
+```
+
+**File: `src/config/firebase.ts`** (TẠO MỚI)
+
+```typescript
+import { initializeApp } from 'firebase/app';
+import { getFirestore } from 'firebase/firestore';
+
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+
+// Export ONLY Firestore (không cần Storage)
+export const db = getFirestore(app);
+
+export default app;
+```
+
+### 2.5. Test Connection
+
+**File: `src/App.tsx`** (TEST)
+
+```typescript
+import { useEffect } from 'react';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from './config/firebase';
+
+function App() {
+  useEffect(() => {
+    // Test Firestore connection
+    const testFirestore = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, 'test'));
+        console.log('✅ Firestore connected! Documents:', querySnapshot.size);
+      } catch (error) {
+        console.error('❌ Firestore error:', error);
+      }
+    };
+    
+    testFirestore();
+  }, []);
+
+  return (
+    <div className="p-8">
+      <h1 className="text-3xl font-bold">Smart Parking</h1>
+      <p>Check console for Firestore connection status</p>
+    </div>
+  );
+}
+
+export default App;
+```
+
+**Chạy:**
+```bash
+npm run dev
+```
+
+**Kiểm tra Console:** Phải thấy "✅ Firestore connected!"
+
+### ✅ Checkpoint 2
+- [ ] Firebase project đã tạo
+- [ ] Firestore đã enable
+- [ ] `.env.local` đã có config
+- [ ] Console log "Firestore connected!"
+
+---
+
+## Bước 3: Setup TensorFlow.js
+
+### 3.1. Giải Thích TensorFlow.js
+
+**TensorFlow.js là gì?**
+- Thư viện AI chạy **TRỰC TIẾP trên browser**
+- Không cần server
+- Detect objects (xe, người, v.v.) real-time
+
+**COCO-SSD là gì?**
+- Pre-trained model để detect objects
+- Đã học nhận diện 80+ loại objects (car, truck, motorcycle, bus...)
+- Chạy nhanh trên browser
+
+### 3.2. Test TensorFlow.js
+
+**File: `src/services/ai/aiDetection.ts`** (TẠO MỚI)
+
+```typescript
+import * as cocoSsd from '@tensorflow-models/coco-ssd';
+import '@tensorflow/tfjs-backend-webgl';
+
+/**
+ * Detection Result từ AI
+ */
+export interface Detection {
+  class: string;      // 'car', 'truck', 'motorcycle', 'bus'
+  score: number;      // Confidence 0-1
+  bbox: [number, number, number, number]; // [x, y, width, height]
+}
+
+/**
+ * AI Detection Service
+ */
+class AIDetectionService {
+  private model: cocoSsd.ObjectDetection | null = null;
+  
+  /**
+   * Load AI model (chỉ load 1 lần)
+   */
+  async loadModel(): Promise<void> {
+    if (this.model) return; // Đã load rồi
+    
+    console.log('🤖 Loading AI model...');
+    this.model = await cocoSsd.load();
+    console.log('✅ AI model loaded!');
+  }
+  
+  /**
+   * Detect vehicles trong image/video frame
+   */
+  async detectVehicles(
+    source: HTMLVideoElement | HTMLImageElement
+  ): Promise<Detection[]> {
+    if (!this.model) {
+      throw new Error('Model not loaded! Call loadModel() first.');
+    }
+    
+    // Detect tất cả objects
+    const predictions = await this.model.detect(source);
+    
+    // Filter chỉ lấy xe
+    const vehicles = predictions.filter(p => 
+      ['car', 'truck', 'motorcycle', 'bus'].includes(p.class)
+    );
+    
+    return vehicles.map(v => ({
+      class: v.class,
+      score: v.score,
+      bbox: v.bbox
+    }));
+  }
+}
+
+// Export singleton instance
+export const aiDetection = new AIDetectionService();
+```
+
+### 3.3. Test AI Detection
+
+**File: `src/App.tsx`** (UPDATE)
+
+```typescript
+import { useEffect, useState } from 'react';
+import { aiDetection } from './services/ai/aiDetection';
+
+function App() {
+  const [modelLoaded, setModelLoaded] = useState(false);
+  
+  useEffect(() => {
+    // Load AI model khi app khởi động
+    const loadAI = async () => {
+      try {
+        await aiDetection.loadModel();
+        setModelLoaded(true);
+      } catch (error) {
+        console.error('❌ Failed to load AI:', error);
+      }
+    };
+    
+    loadAI();
+  }, []);
+
+  return (
+    <div className="p-8">
+      <h1 className="text-3xl font-bold mb-4">Smart Parking</h1>
+      
+      {modelLoaded ? (
+        <div className="text-green-600">
+          ✅ AI Model loaded and ready!
+        </div>
+      ) : (
+        <div className="text-yellow-600">
+          ⏳ Loading AI model...
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default App;
+```
+
+**Chạy:**
+```bash
+npm run dev
+```
+
+**Phải thấy:**
+1. "⏳ Loading AI model..." (vài giây)
+2. Sau đó "✅ AI Model loaded and ready!"
+
+### ✅ Checkpoint 3
+- [ ] TensorFlow.js installed
+- [ ] AI model load thành công
+- [ ] Console log "AI model loaded!"
+
+---
+
+## Bước 4: Build WebRTC Live Camera
+
+### 4.1. Giải Thích WebRTC
+
+**WebRTC là gì?**
+- **Web Real-Time Communication**
+- Built-in trong browsers
+- Lấy camera/mic trực tiếp
+- **MIỄN PHÍ**, không cần server
+
+**`getUserMedia()` là gì?**
+- API để xin quyền truy cập camera
+- Trả về video stream
+- Stream này hiển thị real-time
+
+### 4.2. Tạo Live Camera Component
+
+**File: `src/components/LiveCamera.tsx`** (TẠO MỚI)
+
+```typescript
+import { useEffect, useRef, useState } from 'react';
+
+interface LiveCameraProps {
+  onStreamReady?: (stream: MediaStream) => void;
+}
+
+export function LiveCamera({ onStreamReady }: LiveCameraProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [error, setError] = useState<string>('');
+  
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    
+    const startCamera = async () => {
+      try {
+        // Xin quyền truy cập camera
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            frameRate: { ideal: 30 }
+          },
+          audio: false // Không cần audio
+        });
+        
+        // Hiển thị video stream
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          setIsStreaming(true);
+          
+          // Notify parent component
+          if (onStreamReady) {
+            onStreamReady(stream);
+          }
+        }
+      } catch (err) {
+        console.error('Camera error:', err);
+        setError('Không thể truy cập camera. Vui lòng cho phép quyền camera.');
+      }
+    };
+    
+    startCamera();
+    
+    // Cleanup: Tắt camera khi component unmount
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [onStreamReady]);
+  
+  return (
+    <div className="relative">
+      {error && (
+        <div className="text-red-600 mb-4 p-4 bg-red-50 rounded">
+          ⚠️ {error}
+        </div>
+      )}
+      
+      <div className="relative">
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="w-full max-w-4xl rounded-lg shadow-lg border-4 border-blue-500"
+        />
+        
+        {isStreaming && (
+          <div className="absolute top-4 right-4 bg-red-600 text-white px-3 py-1 rounded-full flex items-center gap-2">
+            <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+            LIVE
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+```
+
+### 4.3. Test Live Camera
+
+**File: `src/pages/LiveViewPage.tsx`** (TẠO MỚI)
+
+```typescript
+import { LiveCamera } from '../components/LiveCamera';
+
+export function LiveViewPage() {
+  return (
+    <div className="p-8">
+      <h1 className="text-3xl font-bold mb-4">
+        📹 Live Parking Camera
+      </h1>
+      
+      <div className="mb-4 p-4 bg-blue-50 rounded">
+        <p className="text-gray-700">
+          ℹ️ Trình duyệt sẽ hỏi quyền truy cập camera. Nhấn <strong>"Allow"</strong>.
+        </p>
+      </div>
+      
+      <LiveCamera 
+        onStreamReady={(stream) => {
+          console.log('✅ Camera stream ready:', stream);
+        }}
+      />
+    </div>
+  );
+}
+```
+
+**File: `src/App.tsx`** (UPDATE để test)
+
+```typescript
+import { LiveViewPage } from './pages/LiveViewPage';
+
+function App() {
+  return <LiveViewPage />;
+}
+
+export default App;
+```
+
+**Chạy:**
+```bash
+npm run dev
+```
+
+**Phải thấy:**
+1. Browser hỏi quyền camera → Nhấn "Allow"
+2. Video live từ webcam hiển thị
+3. Badge "LIVE" đỏ góc trên phải
+
+### ✅ Checkpoint 4
+- [ ] Webcam bật được
+- [ ] Video hiển thị real-time
+- [ ] Badge "LIVE" xuất hiện
+
+---
+
+## Bước 5: Integrate AI Detection
+
+### 5.1. Giải Thích Cách Hoạt Động
+
+```
+Video Stream (30 FPS)
+    ↓
+Mỗi frame → AI detect
+    ↓
+Vẽ bounding boxes lên video
+    ↓
+Show số lượng xe
+```
+
+### 5.2. Tạo Detection Overlay Component
+
+**File: `src/components/LiveDetection.tsx`** (TẠO MỚI)
+
+```typescript
+import { useEffect, useRef, useState } from 'react';
+import { aiDetection, Detection } from '../services/ai/aiDetection';
+
+interface LiveDetectionProps {
+  videoElement: HTMLVideoElement;
+}
+
+export function LiveDetection({ videoElement }: LiveDetectionProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [detections, setDetections] = useState<Detection[]>([]);
+  const [fps, setFps] = useState(0);
+  
+  useEffect(() => {
+    let animationId: number;
+    let lastTime = Date.now();
+    let frameCount = 0;
+    
+    const detectLoop = async () => {
+      if (!videoElement || !canvasRef.current) return;
+      
+      try {
+        // 1. Detect vehicles
+        const vehicles = await aiDetection.detectVehicles(videoElement);
+        setDetections(vehicles);
+        
+        // 2. Draw bounding boxes
+        drawDetections(vehicles);
+        
+        // 3. Calculate FPS
+        frameCount++;
+        const now = Date.now();
+        if (now - lastTime >= 1000) {
+          setFps(frameCount);
+          frameCount = 0;
+          lastTime = now;
+        }
+      } catch (error) {
+        console.error('Detection error:', error);
+      }
+      
+      // 4. Loop
+      animationId = requestAnimationFrame(detectLoop);
+    };
+    
+    const drawDetections = (vehicles: Detection[]) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      
+      const ctx = canvas.getContext('2d')!;
+      
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Draw each vehicle
+      vehicles.forEach(vehicle => {
+        const [x, y, width, height] = vehicle.bbox;
+        
+        // Bounding box
+        ctx.strokeStyle = '#00ff00';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(x, y, width, height);
+        
+        // Label background
+        ctx.fillStyle = '#00ff00';
+        ctx.fillRect(x, y - 25, 200, 25);
+        
+        // Label text
+        ctx.fillStyle = '#000';
+        ctx.font = '16px Arial';
+        ctx.fillText(
+          `${vehicle.class} (${Math.round(vehicle.score * 100)}%)`,
+          x + 5,
+          y - 7
+        );
+      });
+    };
+    
+    detectLoop();
+    
+    return () => {
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
+    };
+  }, [videoElement]);
+  
+  return (
+    <div>
+      <canvas
+        ref={canvasRef}
+        width={videoElement.videoWidth || 1280}
+        height={videoElement.videoHeight || 720}
+        className="absolute top-0 left-0 pointer-events-none"
+      />
+      
+      <div className="mt-4 p-4 bg-gray-900 text-white rounded-lg">
+        <div className="flex justify-between items-center">
+          <div>
+            <span className="text-2xl font-bold">{detections.length}</span>
+            <span className="ml-2">vehicles detected</span>
+          </div>
+          <div className="text-sm text-gray-400">
+            FPS: {fps}
+          </div>
+        </div>
+        
+        {detections.length > 0 && (
+          <div className="mt-2 text-sm">
+            {detections.map((d, i) => (
+              <div key={i} className="flex justify-between">
+                <span>{d.class}</span>
+                <span>{Math.round(d.score * 100)}%</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+```
+
+### 5.3. Update LiveViewPage
+
+**File: `src/pages/LiveViewPage.tsx`** (UPDATE)
+
+```typescript
+import { useState, useEffect } from 'react';
+import { LiveCamera } from '../components/LiveCamera';
+import { LiveDetection } from '../components/LiveDetection';
+import { aiDetection } from '../services/ai/aiDetection';
+
+export function LiveViewPage() {
+  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
+  const [modelLoaded, setModelLoaded] = useState(false);
+  
+  useEffect(() => {
+    // Load AI model
+    aiDetection.loadModel().then(() => {
+      setModelLoaded(true);
+    });
+  }, []);
+  
+  const handleStreamReady = (stream: MediaStream) => {
+    // Get video element
+    const video = document.querySelector('video');
+    if (video) {
+      setVideoElement(video);
+    }
+  };
+  
+  return (
+    <div className="p-8">
+      <h1 className="text-3xl font-bold mb-4">
+        🚗 Live Vehicle Detection
+      </h1>
+      
+      {!modelLoaded ? (
+        <div className="p-4 bg-yellow-50 text-yellow-700 rounded">
+          ⏳ Loading AI model... Please wait.
+        </div>
+      ) : (
+        <div className="relative">
+          <LiveCamera onStreamReady={handleStreamReady} />
+          
+          {videoElement && (
+            <LiveDetection videoElement={videoElement} />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+**Chạy:**
+```bash
+npm run dev
+```
+
+**Phải thấy:**
+1. Camera live
+2. Bounding boxes xanh quanh xe (nếu có xe trong camera)
+3. Count số xe
+4. FPS counter
+
+### ✅ Checkpoint 5
+- [ ] AI detect được xe
+- [ ] Bounding boxes hiển thị
+- [ ] Số lượng xe hiển thị chính xác
+
+---
+
+## Bước 6: Save Results to Firestore
+
+### 6.1. Giải Thích
+
+**Lưu gì vào Firestore?**
+- CHỈ lưu **kết quả detection** (text, numbers)
+- KHÔNG lưu video/ảnh (để tiết kiệm storage)
+
+**Lưu như thế nào?**
+- Mỗi 5 giây → Capture snapshot kết quả
+- Save vào Firestore collection `detections`
+
+### 6.2. Define Types
+
+**File: `src/types/firestore.types.ts`** (TẠO MỚI)
+
+```typescript
+import { Timestamp } from 'firebase/firestore';
+
+/**
+ * Detection Result trong Firestore
+ */
+export interface DetectionRecord {
+  id: string;
+  timestamp: Timestamp;
+  vehicleCount: number;
+  vehicles: {
+    type: string;    // 'car', 'truck', etc
+    confidence: number;
+    bbox: [number, number, number, number];
+  }[];
+  cameraId: string;
+}
+```
+
+### 6.3. Tạo Service Save to Firestore
+
+**File: `src/services/detectionService.ts`** (TẠO MỚI)
+
+```typescript
+import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { db } from '../config/firebase';
+import { Detection } from './ai/aiDetection';
+
+/**
+ * Save detection results to Firestore
+ */
+export async function saveDetectionRecord(
+  vehicles: Detection[],
+  cameraId: string = 'CAM_001'
+): Promise<void> {
+  try {
+    await addDoc(collection(db, 'detections'), {
+      timestamp: Timestamp.now(),
+      vehicleCount: vehicles.length,
+      vehicles: vehicles.map(v => ({
+        type: v.class,
+        confidence: v.score,
+        bbox: v.bbox
+      })),
+      cameraId: cameraId
+    });
+    
+    console.log('✅ Saved detection:', vehicles.length, 'vehicles');
+  } catch (error) {
+    console.error('❌ Failed to save detection:', error);
+  }
+}
+```
+
+### 6.4. Auto Save Every 5 Seconds
+
+**File: `src/components/LiveDetection.tsx`** (UPDATE)
+
+```typescript
+// ... existing imports ...
+import { saveDetectionRecord } from '../services/detectionService';
+
+export function LiveDetection({ videoElement }: LiveDetectionProps) {
+  // ... existing states ...
+  const [lastSaveTime, setLastSaveTime] = useState(Date.now());
+  
+  useEffect(() => {
+    // ... existing code ...
+    
+    const detectLoop = async () => {
+      // ... existing detection code ...
+      
+      const vehicles = await aiDetection.detectVehicles(videoElement);
+      setDetections(vehicles);
+      
+      // Auto save mỗi 5 giây
+      const now = Date.now();
+      if (now - lastSaveTime >= 5000) { // 5 seconds
+        if (vehicles.length > 0) {
+          await saveDetectionRecord(vehicles);
+          setLastSaveTime(now);
+        }
+      }
+      
+      // ... rest of code ...
+    };
+    
+    // ... rest of useEffect ...
+  }, [videoElement, lastSaveTime]);
+  
+  // ... rest of component ...
+}
+```
+
+**Chạy:**
+```bash
+npm run dev
+```
+
+**Kiểm tra Firestore:**
+1. Vào Firebase Console
+2. Firestore Database
+3. Collection `detections`
+4. Phải thấy documents mới mỗi 5 giây (khi có xe)
+
+### ✅ Checkpoint 6
+- [ ] Detections được save vào Firestore
+- [ ] Console log "Saved detection"
+- [ ] Firebase Console hiển thị data
+
+---
+
+## Bước 7: Build Dashboard
+
+### 7.1. History Page (Xem Lịch Sử)
+
+**File: `src/pages/HistoryPage.tsx`** (TẠO MỚI)
+
+```typescript
+import { useEffect, useState } from 'react';
+import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { db } from '../config/firebase';
+import { format } from 'date-fns';
+
+interface DetectionRecord {
+  id: string;
+  timestamp: Date;
+  vehicleCount: number;
+  vehicles: any[];
+}
+
+export function HistoryPage() {
+  const [records, setRecords] = useState<DetectionRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const q = query(
+          collection(db, 'detections'),
+          orderBy('timestamp', 'desc'),
+          limit(50)
+        );
+        
+        const snapshot = await getDocs(q);
+        const data = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          timestamp: doc.data().timestamp.toDate()
+        })) as DetectionRecord[];
+        
+        setRecords(data);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching history:', error);
+        setLoading(false);
+      }
+    };
+    
+    fetchHistory();
+  }, []);
+  
+  if (loading) {
+    return <div className="p-8">Loading...</div>;
+  }
+  
+  return (
+    <div className="p-8">
+      <h1 className="text-3xl font-bold mb-4">
+        📊 Detection History
+      </h1>
+      
+      <div className="space-y-4">
+        {records.map(record => (
+          <div 
+            key={record.id}
+            className="p-4 bg-white border rounded-lg shadow"
+          >
+            <div className="flex justify-between items-center">
+              <div>
+                <div className="font-bold">
+                  {record.vehicleCount} vehicles
+                </div>
+                <div className="text-sm text-gray-600">
+                  {format(record.timestamp, 'dd/MM/yyyy HH:mm:ss')}
+                </div>
+              </div>
+              
+              <div className="text-sm">
+                {record.vehicles.map((v, i) => (
+                  <div key={i}>
+                    {v.type}: {Math.round(v.confidence * 100)}%
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+### 7.2. Stats Page (Thống Kê)
+
+**File: `src/pages/StatsPage.tsx`** (TẠO MỚI)
+
+```typescript
+import { useEffect, useState } from 'react';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../config/firebase';
+
+export function StatsPage() {
+  const [stats, setStats] = useState({
+    totalDetections: 0,
+    totalVehicles: 0,
+    avgVehicles: 0
+  });
+  
+  useEffect(() => {
+    const fetchStats = async () => {
+      const snapshot = await getDocs(collection(db, 'detections'));
+      
+      const totalDetections = snapshot.size;
+      const totalVehicles = snapshot.docs.reduce(
+        (sum, doc) => sum + doc.data().vehicleCount, 
+        0
+      );
+      const avgVehicles = totalDetections > 0 
+        ? totalVehicles / totalDetections 
+        : 0;
+      
+      setStats({
+        totalDetections,
+        totalVehicles,
+        avgVehicles
+      });
+    };
+    
+    fetchStats();
+  }, []);
+  
+  return (
+    <div className="p-8">
+      <h1 className="text-3xl font-bold mb-4">📈 Statistics</h1>
+      
+      <div className="grid grid-cols-3 gap-4">
+        <div className="p-6 bg-blue-50 rounded-lg">
+          <div className="text-4xl font-bold text-blue-600">
+            {stats.totalDetections}
+          </div>
+          <div className="text-gray-600">Total Detections</div>
+        </div>
+        
+        <div className="p-6 bg-green-50 rounded-lg">
+          <div className="text-4xl font-bold text-green-600">
+            {stats.totalVehicles}
+          </div>
+          <div className="text-gray-600">Total Vehicles</div>
+        </div>
+        
+        <div className="p-6 bg-purple-50 rounded-lg">
+          <div className="text-4xl font-bold text-purple-600">
+            {stats.avgVehicles.toFixed(1)}
+          </div>
+          <div className="text-gray-600">Avg Vehicles/Detection</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+### 7.3. Setup Router
+
+**File: `src/App.tsx`** (FINAL UPDATE)
+
+```typescript
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { LiveViewPage } from './pages/LiveViewPage';
+import { HistoryPage } from './pages/HistoryPage';
+import { StatsPage } from './pages/StatsPage';
+
+function App() {
+  return (
+    <BrowserRouter>
+      <div className="min-h-screen bg-gray-50">
+        {/* Navigation */}
+        <nav className="bg-white shadow-md p-4 mb-8">
+          <div className="max-w-7xl mx-auto flex gap-4">
+            <Link to="/" className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+              🎥 Live View
+            </Link>
+            <Link to="/history" className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">
+              📊 History
+            </Link>
+            <Link to="/stats" className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">
+              📈 Stats
+            </Link>
+          </div>
+        </nav>
+        
+        {/* Routes */}
+        <Routes>
+          <Route path="/" element={<LiveViewPage />} />
+          <Route path="/history" element={<HistoryPage />} />
+          <Route path="/stats" element={<StatsPage />} />
+        </Routes>
+      </div>
+    </BrowserRouter>
+  );
+}
+
+export default App;
+```
+
+### ✅ Checkpoint 7
+- [ ] Live View hoạt động
+- [ ] History page hiển thị records
+- [ ] Stats page hiển thị thống kê
+- [ ] Navigation hoạt động
+
+---
+
+## Bước 8: Testing & Polish
+
+### 8.1. Test Checklist
+
+- [ ] **Camera**: Webcam bật được
+- [ ] **AI**: Detect xe chính xác
+- [ ] **Real-time**: Bounding boxes mượt
+- [ ] **Save**: Data vào Firestore
+- [ ] **History**: Hiển thị đúng
+- [ ] **Stats**: Tính toán đúng
+- [ ] **Navigation**: Chuyển trang OK
+
+### 8.2. Performance Tips
+
+```typescript
+// Giảm tần suất detect (nếu lag)
+const DETECT_INTERVAL = 200; // ms (5 FPS thay vì 30 FPS)
+
+// Trong detectLoop:
+setTimeout(() => detectLoop(), DETECT_INTERVAL);
+// Thay vì: requestAnimationFrame(detectLoop);
+```
+
+### 8.3. Deploy (Optional)
+
+```bash
+# Build
+npm run build
+
+# Deploy lên Vercel/Netlify (miễn phí)
+# Upload folder dist/
+```
+
+---
+
+## 🎉 HOÀN TẤT!
+
+### Bạn Đã Có:
+
+✅ Live camera với WebRTC  
+✅ AI detection (TensorFlow.js)  
+✅ Firestore database  
+✅ Dashboard với History & Stats  
+✅ **100% MIỄN PHÍ**  
+
+### Next Steps (Nếu Muốn Nâng Cấp):
+
+1. Thêm alerts (xe đỗ sai chỗ)
+2. Export reports (PDF, Excel)
+3. Multiple cameras
+4. Admin authentication
+
+---
+
+**🎊 Chúc mừng! Bạn đã hoàn thành Smart Parking System!** 🚗✨
+

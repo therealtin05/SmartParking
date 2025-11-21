@@ -11,11 +11,10 @@ Hệ thống quản lý bãi đỗ xe thông minh sử dụng AI/Computer Vision
 ## 🚀 Quick Start
 
 ### Frontend
-\`\`\`bash
 cd frontend
 npm install
 npm run dev
-\`\`\`
+
 
 ## 📚 Tài Liệu
 

@@ -2,14 +2,30 @@
 git add . //add tat ca file moi
 git add path_file
 
+#Add tat ca thay doi ( add file, update, del file )
+git add -A 
+
+#Xu ly ca file bi xoa / doi ten
+git add .
+
+#Them commit cho file
 git commit -m "Pipeline tong quat"
 
 # Dua tu git len github
 git push origin main
 
+# Xem thay doi trong git
+git status
 
-#Xoa file trong im lang : xoa file, xoa ca trong recyclebin. Cmd khong thong bao gi them 
+
+
+# Xoa file trong im lang : xoa file, xoa ca trong recyclebin. Cmd khong thong bao gi them 
 if exist path_to_file del /f /q path_to_file 
 
-#Check xem file co ton tai khong
+# Xoa thu muc 
+rmdir path_to_folder
+rmdit path_to_folder /S /Q : xoa toan bo noi dung ben trong , xoa im lang 
+
+# Check xem file co ton tai khong
 dir path_to_file
+

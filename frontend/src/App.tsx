@@ -10,7 +10,7 @@ import { RegisterPage } from './pages/RegisterPage';
 import { AccountPage } from './pages/AccountPage';
 import { StreamHostPage } from './pages/StreamHostPage';
 import { MultiStreamHostPage } from './pages/MultiStreamHostPage';
-import { StreamViewerPage } from './pages/StreamViewerPage';
+import { StreamViewerPageESP32 as StreamViewerPage } from './pages/StreamViewerPageESP32';
 import { MultiStreamViewerPage } from './pages/MultiStreamViewerPage';
 import { PlateHistoryPage } from './pages/PlateHistoryPage';
 import { ObjectTrackingPage } from './pages/ObjectTrackingPage';

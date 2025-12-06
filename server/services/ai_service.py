@@ -103,22 +103,27 @@ class AIService:
             raise ValueError("Unable to decode image")
         
         # Run ALPR prediction
+        print(f"🔍 Running ALPR prediction on image shape: {frame.shape}")
         results = self.alpr_model.predict(frame)
+        print(f"📊 ALPR returned {len(results)} results")
         
         # Annotate image
         annotated = frame.copy()
         plates = []
         
-        for result in results:
+        for idx, result in enumerate(results):
             # Extract plate info
             plate_text = getattr(result, "plate", "") or ""
             confidence = getattr(result, "confidence", 0.0)
             detection = getattr(result, "detection", None)
             
+            print(f"  Result {idx}: plate='{plate_text}', confidence={confidence}")
+            
             plate_text = plate_text.upper().strip()
             
             # Skip empty plates
             if not plate_text:
+                print(f"  ⚠️ Skipping empty plate text")
                 continue
             
             # Extract bbox
@@ -152,6 +157,8 @@ class AIService:
                 "confidence": float(confidence),
                 "bbox": bbox,
             })
+        
+        print(f"✅ Total valid plates after filtering: {len(plates)}")
         
         # Add banner if plates detected
         if plates:

@@ -1,20 +1,40 @@
 /**
  * StreamViewerPage cho ESP32-CAM
  * Đơn giản hơn WebRTC - chỉ cần HTTP MJPEG stream
+ * Hỗ trợ nhiều chế độ: ESP32, Video File, Mock FFmpeg
  */
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 
-// ESP32 stream URLs
+// Stream URLs
 const ESP32_DIRECT = 'http://192.168.33.122:81/stream'; // Direct từ ESP32
-const FASTAPI_PROXY = 'http://localhost:8000/stream'; // Qua FastAPI proxy
+const FASTAPI_PROXY_ESP32 = 'http://localhost:8000/stream'; // FastAPI proxy ESP32
+const FASTAPI_PROXY_VIDEO = 'http://localhost:8000/stream?mode=video_file'; // FastAPI video file
+const FASTAPI_PROXY_MOCK = 'http://localhost:8000/stream?mode=mock'; // FastAPI mock FFmpeg
+
+type StreamMode = 'esp32' | 'direct' | 'video_file' | 'mock';
 
 export function StreamViewerPageESP32() {
   const { user } = useAuth();
-  const [streamSource, setStreamSource] = useState<'proxy' | 'direct'>('proxy');
+  const [streamMode, setStreamMode] = useState<StreamMode>('esp32');
   const [error, setError] = useState<string | null>(null);
 
-  const streamUrl = streamSource === 'proxy' ? FASTAPI_PROXY : ESP32_DIRECT;
+  const getStreamUrl = () => {
+    switch (streamMode) {
+      case 'esp32':
+        return FASTAPI_PROXY_ESP32;
+      case 'direct':
+        return ESP32_DIRECT;
+      case 'video_file':
+        return FASTAPI_PROXY_VIDEO;
+      case 'mock':
+        return FASTAPI_PROXY_MOCK;
+      default:
+        return FASTAPI_PROXY_ESP32;
+    }
+  };
+
+  const streamUrl = getStreamUrl();
 
   const handleImageError = () => {
     setError(`Không thể kết nối đến stream: ${streamUrl}
@@ -48,32 +68,71 @@ Kiểm tra:
             Chọn nguồn stream
           </h2>
           
-          <div className="flex gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {/* ESP32 via FastAPI */}
             <button
-              onClick={() => setStreamSource('proxy')}
-              className={`px-6 py-3 rounded-lg font-medium transition-all ${
-                streamSource === 'proxy'
-                  ? 'bg-strawberry-500 text-white shadow-lg'
+              onClick={() => setStreamMode('esp32')}
+              className={`px-4 py-3 rounded-lg font-medium transition-all ${
+                streamMode === 'esp32'
+                  ? 'bg-strawberry-500 text-white shadow-lg ring-2 ring-strawberry-300'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              🔄 Qua FastAPI Proxy
+              <div className="text-2xl mb-1">🔄</div>
+              <div className="text-sm">ESP32 Proxy</div>
             </button>
             
+            {/* Direct ESP32 */}
             <button
-              onClick={() => setStreamSource('direct')}
-              className={`px-6 py-3 rounded-lg font-medium transition-all ${
-                streamSource === 'direct'
-                  ? 'bg-matcha-500 text-white shadow-lg'
+              onClick={() => setStreamMode('direct')}
+              className={`px-4 py-3 rounded-lg font-medium transition-all ${
+                streamMode === 'direct'
+                  ? 'bg-matcha-500 text-white shadow-lg ring-2 ring-matcha-300'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              ⚡ Trực tiếp từ ESP32
+              <div className="text-2xl mb-1">⚡</div>
+              <div className="text-sm">Direct ESP32</div>
+            </button>
+            
+            {/* Video File */}
+            <button
+              onClick={() => setStreamMode('video_file')}
+              className={`px-4 py-3 rounded-lg font-medium transition-all ${
+                streamMode === 'video_file'
+                  ? 'bg-blue-500 text-white shadow-lg ring-2 ring-blue-300'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <div className="text-2xl mb-1">📹</div>
+              <div className="text-sm">Video File</div>
+            </button>
+            
+            {/* Mock FFmpeg */}
+            <button
+              onClick={() => setStreamMode('mock')}
+              className={`px-4 py-3 rounded-lg font-medium transition-all ${
+                streamMode === 'mock'
+                  ? 'bg-purple-500 text-white shadow-lg ring-2 ring-purple-300'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <div className="text-2xl mb-1">🎬</div>
+              <div className="text-sm">Mock FFmpeg</div>
             </button>
           </div>
 
-          <div className="mt-4 text-sm text-gray-600">
-            <p><strong>URL hiện tại:</strong> <code className="bg-gray-100 px-2 py-1 rounded">{streamUrl}</code></p>
+          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+            <p className="text-sm text-gray-600 mb-2">
+              <strong>Chế độ hiện tại:</strong>{' '}
+              {streamMode === 'esp32' && '🔄 ESP32-CAM qua FastAPI Proxy (Production)'}
+              {streamMode === 'direct' && '⚡ Trực tiếp từ ESP32-CAM'}
+              {streamMode === 'video_file' && '📹 Video File (Testing - cần file test_video.mp4)'}
+              {streamMode === 'mock' && '🎬 Mock FFmpeg Stream (Testing - cần chạy script)'}
+            </p>
+            <p className="text-xs text-gray-500 font-mono">
+              URL: {streamUrl}
+            </p>
           </div>
         </div>
 
@@ -100,7 +159,10 @@ Kiểm tra:
             {/* Overlay: Stream Info */}
             <div className="absolute top-4 right-4 bg-black/70 text-white px-4 py-2 rounded-lg backdrop-blur-sm">
               <p className="text-sm">
-                {streamSource === 'proxy' ? '🔄 Proxy' : '⚡ Direct'}
+                {streamMode === 'esp32' && '🔄 ESP32 Proxy'}
+                {streamMode === 'direct' && '⚡ ESP32 Direct'}
+                {streamMode === 'video_file' && '📹 Video File'}
+                {streamMode === 'mock' && '🎬 Mock FFmpeg'}
               </p>
             </div>
           </div>

@@ -47,6 +47,17 @@ build/
 *_custom.pt
 yolov8s_car_custom.pt
 
+# Video files for testing (very large)
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.flv
+*.wmv
+*.webm
+test_video.*
+mock_video.*
+
 # Temporary
 *.tmp
 *.temp

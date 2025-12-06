@@ -13,5 +13,9 @@ export const API_CONFIG = {
       objectTracking: '/api/object-tracking',
       esp32Snapshot: '/api/esp32/snapshot',
       testESP32: '/test/esp32',
+      vehicleCheckIn: '/api/vehicle/checkin',
+      trackingLive: '/api/tracking/live',
+      parkingSpaceUpdate: '/api/parking-space/update',
+      streamSnapshot: '/api/stream/snapshot',
     }
   };
